@@ -11,22 +11,86 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.method.ScrollingMovementMethod;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements SensorEventListener, View.OnClickListener{
 
     BluetoothManager btManager;
     BluetoothAdapter btAdapter;
     BluetoothLeScanner btScanner;
-    Button startScanningButton;
-    Button stopScanningButton;
-    TextView peripheralTextView;
+
+    private SensorManager senSensorAccelerometerManager;
+    private Sensor senAccelerometer;
+
+    private SensorManager senSensorStepManager;
+    private Sensor senSensorStep;
+
+    EditText edTxt_timestamp;
+    EditText edTxt_ibks_A;
+    EditText edTxt_ibks_B;
+    EditText edTxt_ibks_C;
+    EditText edTxt_ibks_D;
+    EditText edTxt_ibks_E;
+
+    EditText edTxt_X;
+    EditText edTxt_Y;
+    EditText edTxt_Z;
+    EditText edTxt_steps;
+
+    Button btn_a1;
+    Button btn_a2;
+    Button btn_a3;
+    Button btn_a4;
+    Button btn_b1;
+    Button btn_b2;
+    Button btn_b3;
+    Button btn_b4;
+    Button btn_c1;
+    Button btn_c2;
+    Button btn_c3;
+    Button btn_c4;
+    Button btn_d1;
+    Button btn_d2;
+    Button btn_d3;
+    Button btn_d4;
+
+
+    int ibks_rssi_A = -200;
+    int ibks_rssi_B = -200;
+    int ibks_rssi_C = -200;
+    int ibks_rssi_D = -200;
+    int ibks_rssi_E = -200;
+
+    int[] rssis = new int[5];
+
+    long ibks_time_A;
+    long ibks_time_B;
+    long ibks_time_C;
+    long ibks_time_D;
+    long ibks_time_E;
+
+    double acceler_x = 0;
+    double acceler_y = 0;
+    double acceler_z = 0;
+    double[] accelers = new double[3];
+
+    int steps = 0;
+    long timestamp;
+
     private final static int REQUEST_ENABLE_BT = 1;
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
 
@@ -35,23 +99,50 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        peripheralTextView = (TextView) findViewById(R.id.PeripheralTextView);
-        peripheralTextView.setMovementMethod(new ScrollingMovementMethod());
+        edTxt_timestamp = findViewById(R.id.edTxt_timestamp);
+        edTxt_ibks_A = findViewById(R.id.edTxt_ibks_A);
+        edTxt_ibks_B = findViewById(R.id.edTxt_ibks_B);
+        edTxt_ibks_C = findViewById(R.id.edTxt_ibks_C);
+        edTxt_ibks_D = findViewById(R.id.edTxt_ibks_D);
+        edTxt_ibks_E = findViewById(R.id.edTxt_ibks_E);
 
-        startScanningButton = (Button) findViewById(R.id.StartScanButton);
-        startScanningButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                startScanning();
-            }
-        });
+        edTxt_X = findViewById(R.id.edtxt_X);
+        edTxt_Y = findViewById(R.id.edtxt_Y);
+        edTxt_Z = findViewById(R.id.edtxt_Z);
+        edTxt_steps = findViewById(R.id.edtxt_steps);
 
-        stopScanningButton = (Button) findViewById(R.id.StopScanButton);
-        stopScanningButton.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                stopScanning();
-            }
-        });
-        stopScanningButton.setVisibility(View.INVISIBLE);
+        btn_a1 = findViewById(R.id.btn_A1);
+        btn_a1.setOnClickListener(this);
+        btn_a2 = findViewById(R.id.btn_A2);
+        btn_a2.setOnClickListener(this);
+        btn_a3 = findViewById(R.id.btn_A3);
+        btn_a3.setOnClickListener(this);
+        btn_a4 = findViewById(R.id.btn_A4);
+        btn_a4.setOnClickListener(this);
+        btn_b1 = findViewById(R.id.btn_B1);
+        btn_b1.setOnClickListener(this);
+        btn_b2 = findViewById(R.id.btn_B2);
+        btn_b2.setOnClickListener(this);
+        btn_b3 = findViewById(R.id.btn_B3);
+        btn_b3.setOnClickListener(this);
+        btn_b4 = findViewById(R.id.btn_B4);
+        btn_b4.setOnClickListener(this);
+        btn_c1 = findViewById(R.id.btn_C1);
+        btn_c1.setOnClickListener(this);
+        btn_c2 = findViewById(R.id.btn_C2);
+        btn_c2.setOnClickListener(this);
+        btn_c3 = findViewById(R.id.btn_C3);
+        btn_c3.setOnClickListener(this);
+        btn_c4 = findViewById(R.id.btn_C4);
+        btn_c4.setOnClickListener(this);
+        btn_d1 = findViewById(R.id.btn_D1);
+        btn_d1.setOnClickListener(this);
+        btn_d2 = findViewById(R.id.btn_D2);
+        btn_d2.setOnClickListener(this);
+        btn_d3 = findViewById(R.id.btn_D3);
+        btn_d3.setOnClickListener(this);
+        btn_d4 = findViewById(R.id.btn_D4);
+        btn_d4.setOnClickListener(this);
 
         btManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
         btAdapter = btManager.getAdapter();
@@ -76,19 +167,94 @@ public class MainActivity extends AppCompatActivity {
             });
             builder.show();
         }
+
+        senSensorAccelerometerManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        senAccelerometer = senSensorAccelerometerManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        senSensorAccelerometerManager.registerListener(this, senAccelerometer , SensorManager.SENSOR_DELAY_NORMAL);
+
+        senSensorStepManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        senSensorStep = senSensorStepManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
+        senSensorStepManager.registerListener(this, senSensorStep , SensorManager.SENSOR_DELAY_NORMAL);
+
+        startScanning();
     }
 
     // Device scan callback.
     private ScanCallback leScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-            peripheralTextView.append("Device Name: " + result.getDevice().getName() + " rssi: " + result.getRssi() + "\n");
+//
+            String beaconName = result.getDevice().getName();
+            int beaconRssi = result.getRssi();
 
-            // auto scroll for text view
-            final int scrollAmount = peripheralTextView.getLayout().getLineTop(peripheralTextView.getLineCount()) - peripheralTextView.getHeight();
-            // if there is no need to scroll, scrollAmount will be <=0
-            if (scrollAmount > 0)
-                peripheralTextView.scrollTo(0, scrollAmount);
+            Long tsLong = System.currentTimeMillis()/1000;
+            edTxt_timestamp.setText(String.valueOf(tsLong));
+
+            switch (beaconName){
+                case "iBKS105_A":
+                    ibks_rssi_A = beaconRssi;
+                    ibks_time_A = tsLong;
+                    break;
+                case "iBKS105_B":
+                    ibks_rssi_B = beaconRssi;
+                    ibks_time_B = tsLong;
+                    break;
+                case "iBKS105_C":
+                    ibks_rssi_C = beaconRssi;
+                    ibks_time_C = tsLong;
+                    break;
+                case "iBKS105_D":
+                    ibks_rssi_D = beaconRssi;
+                    ibks_time_D = tsLong;
+                    break;
+                case "iBKS105_E":
+                    ibks_rssi_E = beaconRssi;
+                    ibks_time_E = tsLong;
+                    break;
+            }
+            if (tsLong-ibks_time_A > 5){
+                ibks_rssi_A = -200;
+                edTxt_ibks_A.setTextColor(Color.RED);
+            }
+            else{
+                edTxt_ibks_A.setTextColor(Color.BLACK);
+            }
+            if (tsLong-ibks_time_B > 5){
+                ibks_rssi_B = -200;
+                edTxt_ibks_B.setTextColor(Color.RED);
+            }else{
+                edTxt_ibks_B.setTextColor(Color.BLACK);
+            }
+            if (tsLong-ibks_time_C > 5){
+                ibks_rssi_C = -200;
+                edTxt_ibks_C.setTextColor(Color.RED);
+            }else{
+                edTxt_ibks_C.setTextColor(Color.BLACK);
+            }
+            if (tsLong-ibks_time_D > 5){
+                ibks_rssi_D = -200;
+                edTxt_ibks_D.setTextColor(Color.RED);
+            }else{
+                edTxt_ibks_D.setTextColor(Color.BLACK);
+            }
+            if (tsLong-ibks_time_E > 5){
+                ibks_rssi_E = -200;
+                edTxt_ibks_E.setTextColor(Color.RED);
+            }else{
+                edTxt_ibks_E.setTextColor(Color.BLACK);
+            }
+
+            rssis[0] = ibks_rssi_A;
+            rssis[1] = ibks_rssi_B;
+            rssis[2] = ibks_rssi_C;
+            rssis[3] = ibks_rssi_D;
+            rssis[4] = ibks_rssi_E;
+
+            edTxt_ibks_A.setText(String.valueOf(ibks_rssi_A));
+            edTxt_ibks_B.setText(String.valueOf(ibks_rssi_B));
+            edTxt_ibks_C.setText(String.valueOf(ibks_rssi_C));
+            edTxt_ibks_D.setText(String.valueOf(ibks_rssi_D));
+            edTxt_ibks_E.setText(String.valueOf(ibks_rssi_E));
         }
     };
 
@@ -120,9 +286,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void startScanning() {
         System.out.println("start scanning");
-        peripheralTextView.setText("");
-        startScanningButton.setVisibility(View.INVISIBLE);
-        stopScanningButton.setVisibility(View.VISIBLE);
+
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
@@ -131,16 +295,111 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void stopScanning() {
-        System.out.println("stopping scanning");
-        peripheralTextView.append("Stopped Scanning");
-        startScanningButton.setVisibility(View.VISIBLE);
-        stopScanningButton.setVisibility(View.INVISIBLE);
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                btScanner.stopScan(leScanCallback);
-            }
-        });
+    @Override
+    public void onSensorChanged(SensorEvent sensorEvent) {
+        Sensor mySensor = sensorEvent.sensor;
+
+        if (mySensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+            acceler_x = Math.round(sensorEvent.values[0]*100);
+            acceler_y = Math.round(sensorEvent.values[1]*100);
+            acceler_z = Math.round(sensorEvent.values[2]*100);
+
+            edTxt_X.setText(String.valueOf(acceler_x/100));
+            edTxt_Y.setText(String.valueOf(acceler_y/100));
+            edTxt_Z.setText(String.valueOf(acceler_z/100));
+
+            accelers[0] = acceler_x;
+            accelers[1] = acceler_y;
+            accelers[2] = acceler_z;
+        }
+
+        if (mySensor.getType() == Sensor.TYPE_STEP_COUNTER) {
+            float steps = sensorEvent.values[0];
+
+            edTxt_steps.setText(String.valueOf(steps));
+        }
+    }
+
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        senSensorAccelerometerManager.unregisterListener(this);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        senSensorAccelerometerManager.registerListener(this, senAccelerometer, SensorManager.SENSOR_DELAY_NORMAL);
+    }
+
+    @Override
+    public void onClick(View v) {
+        String location = "";
+        switch (v.getId()){
+            case R.id.btn_A1:
+                location = "A1";
+                break;
+            case R.id.btn_A2:
+                location = "A2";
+                break;
+            case R.id.btn_A3:
+                location = "A3";
+                break;
+            case R.id.btn_A4:
+                location = "A4";
+                break;
+            case R.id.btn_B1:
+                location = "B1";
+                break;
+            case R.id.btn_B2:
+                location = "B2";
+                break;
+            case R.id.btn_B3:
+                location = "B3";
+                break;
+            case R.id.btn_B4:
+                location = "B4";
+                break;
+            case R.id.btn_C1:
+                location = "C1";
+                break;
+            case R.id.btn_C2:
+                location = "C2";
+                break;
+            case R.id.btn_C3:
+                location = "C3";
+                break;
+            case R.id.btn_C4:
+                location = "C4";
+                break;
+            case R.id.btn_D1:
+                location = "D1";
+                break;
+            case R.id.btn_D2:
+                location = "D2";
+                break;
+            case R.id.btn_D3:
+                location = "D3";
+                break;
+            case R.id.btn_D4:
+                location = "D4";
+                break;
+        }
+        saveDB(location);
+        Toast.makeText(MainActivity.this, location,Toast.LENGTH_LONG).show();
+    }
+
+    public void saveDB(String location){
+        Mesurement mesurement = new Mesurement(rssis, accelers, steps, System.currentTimeMillis()/1000, location);
+        DataSource dataSource = new DataSource(MainActivity.this);
+
+        dataSource.open();
+        dataSource.inserMesurement(mesurement);
+        dataSource.close();
     }
 }
