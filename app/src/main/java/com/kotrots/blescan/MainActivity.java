@@ -3,10 +3,12 @@ package com.kotrots.blescan;
 import android.Manifest;
 import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -29,9 +31,10 @@ import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener, View.OnClickListener{
 
-    BluetoothManager btManager;
     BluetoothAdapter btAdapter;
     BluetoothLeScanner btScanner;
+    ScanSettings scanSettings;
+    BluetoothGatt btGatt;
 
     private SensorManager senSensorAccelerometerManager;
     private Sensor senAccelerometer;
@@ -51,6 +54,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     EditText edTxt_Z;
     EditText edTxt_steps;
 
+    EditText edTxt_test;
+
     Button btn_a1;
     Button btn_a2;
     Button btn_a3;
@@ -68,6 +73,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     Button btn_d3;
     Button btn_d4;
 
+    Long tsLong;
 
     int ibks_rssi_A = -200;
     int ibks_rssi_B = -200;
@@ -111,6 +117,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         edTxt_Z = findViewById(R.id.edtxt_Z);
         edTxt_steps = findViewById(R.id.edtxt_steps);
 
+        edTxt_test = findViewById(R.id.edtxt_test);
+
         btn_a1 = findViewById(R.id.btn_A1);
         btn_a1.setOnClickListener(this);
         btn_a2 = findViewById(R.id.btn_A2);
@@ -144,28 +152,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         btn_d4 = findViewById(R.id.btn_D4);
         btn_d4.setOnClickListener(this);
 
-        btManager = (BluetoothManager)getSystemService(Context.BLUETOOTH_SERVICE);
-        btAdapter = btManager.getAdapter();
-        btScanner = btAdapter.getBluetoothLeScanner();
+
 
         if (btAdapter != null && !btAdapter.isEnabled()) {
             Intent enableIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableIntent,REQUEST_ENABLE_BT);
-        }
-
-        // Make sure we have access coarse location enabled, if not, prompt the user to enable it
-        if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle("This app needs location access");
-            builder.setMessage("Please grant location access so this app can detect peripherals.");
-            builder.setPositiveButton(android.R.string.ok, null);
-            builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialog) {
-                    requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
-                }
-            });
-            builder.show();
         }
 
         senSensorAccelerometerManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -176,19 +167,42 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         senSensorStep = senSensorStepManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
         senSensorStepManager.registerListener(this, senSensorStep , SensorManager.SENSOR_DELAY_NORMAL);
 
+        initBT();
+
         startScanning();
+    }
+
+    private void initBT(){
+        final BluetoothManager btManager =  (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        btAdapter = btManager.getAdapter();
+
+        //Create the scan settings
+        ScanSettings.Builder scanSettingsBuilder = new ScanSettings.Builder();
+        //Set scan latency mode. Lower latency, faster device detection/more battery and resources consumption
+        scanSettingsBuilder.setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY);
+        //Wrap settings together and save on a settings var (declared globally).
+        scanSettings = scanSettingsBuilder.build();
+        //Get the BLE scanner from the BT adapter (var declared globally)
+        btScanner = btAdapter.getBluetoothLeScanner();
+
+        btAdapter = btManager.getAdapter();
+        btScanner = btAdapter.getBluetoothLeScanner();
     }
 
     // Device scan callback.
     private ScanCallback leScanCallback = new ScanCallback() {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
-//
+            super.onScanResult(callbackType, result);
+            Log.d("MyLog", result.getDevice().getName());
+
             String beaconName = result.getDevice().getName();
             int beaconRssi = result.getRssi();
 
-            Long tsLong = System.currentTimeMillis()/1000;
+            tsLong = System.currentTimeMillis()/1000;
             edTxt_timestamp.setText(String.valueOf(tsLong));
+
+
 
             switch (beaconName){
                 case "iBKS105_A":
@@ -212,49 +226,57 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     ibks_time_E = tsLong;
                     break;
             }
-            if (tsLong-ibks_time_A > 5){
-                ibks_rssi_A = -200;
-                edTxt_ibks_A.setTextColor(Color.RED);
-            }
-            else{
-                edTxt_ibks_A.setTextColor(Color.BLACK);
-            }
-            if (tsLong-ibks_time_B > 5){
-                ibks_rssi_B = -200;
-                edTxt_ibks_B.setTextColor(Color.RED);
-            }else{
-                edTxt_ibks_B.setTextColor(Color.BLACK);
-            }
-            if (tsLong-ibks_time_C > 5){
-                ibks_rssi_C = -200;
-                edTxt_ibks_C.setTextColor(Color.RED);
-            }else{
-                edTxt_ibks_C.setTextColor(Color.BLACK);
-            }
-            if (tsLong-ibks_time_D > 5){
-                ibks_rssi_D = -200;
-                edTxt_ibks_D.setTextColor(Color.RED);
-            }else{
-                edTxt_ibks_D.setTextColor(Color.BLACK);
-            }
-            if (tsLong-ibks_time_E > 5){
-                ibks_rssi_E = -200;
-                edTxt_ibks_E.setTextColor(Color.RED);
-            }else{
-                edTxt_ibks_E.setTextColor(Color.BLACK);
-            }
 
-            rssis[0] = ibks_rssi_A;
-            rssis[1] = ibks_rssi_B;
-            rssis[2] = ibks_rssi_C;
-            rssis[3] = ibks_rssi_D;
-            rssis[4] = ibks_rssi_E;
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (tsLong-ibks_time_A > 5){
+                        ibks_rssi_A = -200;
+                        edTxt_ibks_A.setTextColor(Color.RED);
+                    }
+                    else{
+                        edTxt_ibks_A.setTextColor(Color.BLACK);
+                    }
+                    if (tsLong-ibks_time_B > 5){
+                        ibks_rssi_B = -200;
+                        edTxt_ibks_B.setTextColor(Color.RED);
+                    }else{
+                        edTxt_ibks_B.setTextColor(Color.BLACK);
+                    }
+                    if (tsLong-ibks_time_C > 5){
+                        ibks_rssi_C = -200;
+                        edTxt_ibks_C.setTextColor(Color.RED);
+                    }else{
+                        edTxt_ibks_C.setTextColor(Color.BLACK);
+                    }
+                    if (tsLong-ibks_time_D > 5){
+                        ibks_rssi_D = -200;
+                        edTxt_ibks_D.setTextColor(Color.RED);
+                    }else{
+                        edTxt_ibks_D.setTextColor(Color.BLACK);
+                    }
+                    if (tsLong-ibks_time_E > 5){
+                        ibks_rssi_E = -200;
+                        edTxt_ibks_E.setTextColor(Color.RED);
+                    }else{
+                        edTxt_ibks_E.setTextColor(Color.BLACK);
+                    }
 
-            edTxt_ibks_A.setText(String.valueOf(ibks_rssi_A));
-            edTxt_ibks_B.setText(String.valueOf(ibks_rssi_B));
-            edTxt_ibks_C.setText(String.valueOf(ibks_rssi_C));
-            edTxt_ibks_D.setText(String.valueOf(ibks_rssi_D));
-            edTxt_ibks_E.setText(String.valueOf(ibks_rssi_E));
+                    rssis[0] = ibks_rssi_A;
+                    rssis[1] = ibks_rssi_B;
+                    rssis[2] = ibks_rssi_C;
+                    rssis[3] = ibks_rssi_D;
+                    rssis[4] = ibks_rssi_E;
+
+                    edTxt_ibks_A.setText(String.valueOf(ibks_rssi_A));
+                    edTxt_ibks_B.setText(String.valueOf(ibks_rssi_B));
+                    edTxt_ibks_C.setText(String.valueOf(ibks_rssi_C));
+                    edTxt_ibks_D.setText(String.valueOf(ibks_rssi_D));
+                    edTxt_ibks_E.setText(String.valueOf(ibks_rssi_E));
+                }
+            });
+
+
         }
     };
 
@@ -287,12 +309,14 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void startScanning() {
         System.out.println("start scanning");
 
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                btScanner.startScan(leScanCallback);
-            }
-        });
+        btScanner.startScan(null, scanSettings, leScanCallback);
+
+//        AsyncTask.execute(new Runnable() {
+//            @Override
+//            public void run() {
+//                btScanner.startScan(leScanCallback);
+//            }
+//        });
     }
 
     @Override
@@ -315,6 +339,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if (mySensor.getType() == Sensor.TYPE_STEP_COUNTER) {
             float steps = sensorEvent.values[0];
+
+            long timestamp = sensorEvent.timestamp;
+
+            edTxt_test.setText(String.valueOf(timestamp));
 
             edTxt_steps.setText(String.valueOf(steps));
         }
