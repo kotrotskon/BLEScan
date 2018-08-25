@@ -29,6 +29,8 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.util.Date;
+
 public class MainActivity extends AppCompatActivity implements SensorEventListener, View.OnClickListener{
 
     BluetoothAdapter btAdapter;
@@ -310,13 +312,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         System.out.println("start scanning");
 
         btScanner.startScan(null, scanSettings, leScanCallback);
-
-//        AsyncTask.execute(new Runnable() {
-//            @Override
-//            public void run() {
-//                btScanner.startScan(leScanCallback);
-//            }
-//        });
     }
 
     @Override
@@ -339,10 +334,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         if (mySensor.getType() == Sensor.TYPE_STEP_COUNTER) {
             float steps = sensorEvent.values[0];
-
-            long timestamp = sensorEvent.timestamp;
-
-            edTxt_test.setText(String.valueOf(timestamp));
 
             edTxt_steps.setText(String.valueOf(steps));
         }
