@@ -10,7 +10,7 @@ public class Mesurement {
     private double acceler_X;
     private double acceler_Y;
     private double acceler_Z;
-    private int steps;
+    private float steps;
     private long timestamp;
     private String location;
 
@@ -22,7 +22,7 @@ public class Mesurement {
         this.location = location;
     }
 
-    public Mesurement(int[] rssis, double[] accelers, int steps, long timestamp, String location){
+    public Mesurement(int[] rssis, double[] accelers, float steps, long timestamp, String location){
         this.rssi_ibksA = rssis[0];
         this.rssi_ibksB = rssis[1];
         this.rssi_ibksC = rssis[2];

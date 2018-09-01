@@ -29,8 +29,6 @@ import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import java.util.Date;
-
 public class MainActivity extends AppCompatActivity implements SensorEventListener, View.OnClickListener{
 
     BluetoothAdapter btAdapter;
@@ -55,8 +53,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     EditText edTxt_Y;
     EditText edTxt_Z;
     EditText edTxt_steps;
-
-    EditText edTxt_test;
 
     Button btn_a1;
     Button btn_a2;
@@ -96,7 +92,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     double acceler_z = 0;
     double[] accelers = new double[3];
 
-    int steps = 0;
+    float steps = 0;
     long timestamp;
 
     private final static int REQUEST_ENABLE_BT = 1;
@@ -118,8 +114,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         edTxt_Y = findViewById(R.id.edtxt_Y);
         edTxt_Z = findViewById(R.id.edtxt_Z);
         edTxt_steps = findViewById(R.id.edtxt_steps);
-
-        edTxt_test = findViewById(R.id.edtxt_test);
 
         btn_a1 = findViewById(R.id.btn_A1);
         btn_a1.setOnClickListener(this);
@@ -312,6 +306,13 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         System.out.println("start scanning");
 
         btScanner.startScan(null, scanSettings, leScanCallback);
+
+//        AsyncTask.execute(new Runnable() {
+//            @Override
+//            public void run() {
+//                btScanner.startScan(leScanCallback);
+//            }
+//        });
     }
 
     @Override
@@ -327,13 +328,15 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             edTxt_Y.setText(String.valueOf(acceler_y/100));
             edTxt_Z.setText(String.valueOf(acceler_z/100));
 
-            accelers[0] = acceler_x;
-            accelers[1] = acceler_y;
-            accelers[2] = acceler_z;
+            accelers[0] = acceler_x/100;
+            accelers[1] = acceler_y/100;
+            accelers[2] = acceler_z/100;
         }
 
         if (mySensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            float steps = sensorEvent.values[0];
+            steps = sensorEvent.values[0];
+
+            long timestamp = sensorEvent.timestamp;
 
             edTxt_steps.setText(String.valueOf(steps));
         }
